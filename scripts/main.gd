@@ -74,6 +74,7 @@ var reset_save_button: Button
 var dock_arrows_holder: Node2D
 var previewed_tiles: Array[HexTile] = []
 var camera: Camera2D
+var shake_tween: Tween
 
 var best_score_label: Label
 var calendar_badge: Panel
@@ -306,11 +307,11 @@ func _input(event: InputEvent) -> void:
 		if event is InputEventMouseButton and event.pressed:
 			get_tree().reload_current_scene()
 		return
-
+	var pointer_pos := get_global_mouse_position()
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			# Check if click is near the dock
-			if event.position.distance_to(dock_center) < 110.0:
+			if pointer_pos.distance_to(dock_center) < 110.0:
 				is_dragging = true
 				has_dragged_far = false
 				drag_start_pos = event.position
@@ -327,24 +328,24 @@ func _input(event: InputEvent) -> void:
 				_clear_slot_highlights()
 
 	elif event is InputEventMouseMotion and is_dragging:
-		if event.position.distance_to(drag_start_pos) > DRAG_THRESHOLD:
+		if pointer_pos.distance_to(drag_start_pos) > DRAG_THRESHOLD:
 			has_dragged_far = true
 			
 		if has_dragged_far:
 			# Offset slightly upward so finger doesn't cover the tiles on mobile
-			candidate_holder.position = event.position + Vector2(0, -45)
+			candidate_holder.position = pointer_pos + Vector2(0, -45)
 			_highlight_hover_slots()
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			# If Hammer targeting is active, check if the player tapped an occupied board tile
 			if is_hammer_mode:
-				var clicked_coord = pixel_to_axial(event.position)
+				var clicked_coord = pixel_to_axial(pointer_pos)
 				if board_tiles.has(clicked_coord) and board_tiles[clicked_coord] != null:
 					_use_hammer_on_coord(clicked_coord)
 				return
 				
 			# Normal dock drag/tap check
-			if event.position.distance_to(dock_center) < 110.0:
+			if pointer_pos.distance_to(dock_center) < 110.0:
 				is_dragging = true
 				has_dragged_far = false
 				drag_start_pos = event.position
@@ -1104,7 +1105,9 @@ func _restore_game(data: Dictionary) -> void:
 func _setup_juice_nodes() -> void:
 	# Centered Camera2D for screen shake
 	camera = Camera2D.new()
-	camera.position = screen_size * .5
+	camera.anchor_mode = Camera2D.ANCHOR_MODE_FIXED_TOP_LEFT
+	camera.position = Vector2.ZERO
+	camera.offset = Vector2.ZERO
 	add_child(camera)
 	
 	# Rotating curved arrows around the dock ring
@@ -1140,13 +1143,14 @@ func _setup_juice_nodes() -> void:
 func _shake_screen(intensity: float = 4.0, duration: float = 0.16) -> void:
 	if not camera:
 		return
-	var base_pos := Vector2(270, 480)
-	var tween := create_tween()
+	if shake_tween and shake_tween.is_valid():
+		shake_tween.kill()
+	shake_tween = create_tween()
 	var steps := 4
 	for i in range(steps):
-		var offset := Vector2(randf_range(-intensity, intensity), randf_range(-intensity, intensity))
-		tween.tween_property(camera, "position", base_pos + offset, duration / float(steps))
-	tween.tween_property(camera, "position", base_pos, 0.04)
+		var rand_offset := Vector2(randf_range(-intensity, intensity), randf_range(-intensity, intensity))
+		shake_tween.tween_property(camera, "offset", rand_offset, duration / float(steps))
+	shake_tween.tween_property(camera, "offset", Vector2.ZERO, 0.04)
 
 func _spawn_merge_particles(world_pos: Vector2, tile_color: Color, count: int = 12) -> void:
 	for i in range(count):
