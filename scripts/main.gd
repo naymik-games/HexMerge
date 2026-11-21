@@ -32,7 +32,7 @@ var slot_visuals: Dictionary = {}   # Vector2i -> Polygon2D (background hexes)
 
 var score: int = 0
 var score_label: Label
-var game_over_label: Label
+var game_over_panel: Panel
 
 # Spawner / Candidate piece state
 var candidate_holder: Node2D
@@ -151,19 +151,63 @@ func _setup_background_and_ui() -> void:
 	add_child(dock_ring)
 	
 	# Game Over Banner (Hidden initially)
-	game_over_label = Label.new()
-	game_over_label.text = "NO MOVES LEFT!\nClick to Restart"
-	game_over_label.position = Vector2(0, 120)
-	game_over_label.size = Vector2(540, 80)
-	game_over_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	game_over_label.add_theme_font_size_override("font_size", 24)
-	game_over_label.add_theme_color_override("font_color", Color("#ff7979"))
-	game_over_label.visible = false
-	add_child(game_over_label)
+	_setup_game_over_ui()
 	
 	_setup_level_bar()
 	_setup_gem_ui()
 	_setup_powerup_ui()
+
+func _setup_game_over_ui() -> void:
+	var panel_size := Vector2(340, 124)
+	game_over_panel = Panel.new()
+	game_over_panel.size = panel_size
+	game_over_panel.position = board_center - (panel_size * 0.5)
+	game_over_panel.z_index = 30
+	game_over_panel.visible = false
+	
+	# Dark rounded card with a crisp coral/red border
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("#18181a", 0.94)
+	style.set_corner_radius_all(18)
+	style.border_width_top = 3
+	style.border_width_bottom = 3
+	style.border_width_left = 3
+	style.border_width_right = 3
+	style.border_color = Color("#ff7979")
+	style.shadow_color = Color(0, 0, 0, 0.6)
+	style.shadow_size = 12
+	game_over_panel.add_theme_stylebox_override("panel", style)
+	add_child(game_over_panel)
+	
+	# Primary Headline
+	var title_lbl := Label.new()
+	title_lbl.text = "NO MOVES LEFT!"
+	title_lbl.position = Vector2(0, 20)
+	title_lbl.size = Vector2(panel_size.x, 38)
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_lbl.add_theme_font_size_override("font_size", 28)
+	title_lbl.add_theme_color_override("font_color", Color("#ff7979"))
+	game_over_panel.add_child(title_lbl)
+	
+	# Subtext Prompt
+	var sub_lbl := Label.new()
+	sub_lbl.text = "Tap anywhere to start a new game"
+	sub_lbl.position = Vector2(0, 68)
+	sub_lbl.size = Vector2(panel_size.x, 28)
+	sub_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub_lbl.add_theme_font_size_override("font_size", 16)
+	sub_lbl.add_theme_color_override("font_color", Color("#d0d0d8"))
+	game_over_panel.add_child(sub_lbl)
+
+
+func _set_game_over(is_over: bool) -> void:
+	game_over_panel.visible = is_over
+	if is_over:
+		SaveManager.delete_save()
+		game_over_panel.pivot_offset = game_over_panel.size * 0.5
+		game_over_panel.scale = Vector2(0.8, 0.8)
+		var tween := create_tween()
+		tween.tween_property(game_over_panel, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _build_board() -> void:
 	for q in range(-GRID_RADIUS, GRID_RADIUS + 1):
@@ -234,12 +278,14 @@ func _spawn_candidate() -> void:
 		_update_candidate_pair_positions(false)
 		
 	if not _can_place_candidate():
-		game_over_label.visible = true
+		_set_game_over(true)
 	
 	_update_powerup_buttons()
 	if not _can_place_candidate():
-		game_over_label.visible = true
-	_save_game()
+		_set_game_over(true)
+	else:
+		_set_game_over(false)
+		_save_game()
 
 func _get_highest_board_value() -> int:
 	var max_val = 2
@@ -303,9 +349,9 @@ func _update_candidate_pair_positions(animate: bool) -> void:
 # --- INPUT HANDLING (TAP TO ROTATE / DRAG TO PLACE) ---
 
 func _input(event: InputEvent) -> void:
-	if game_over_label.visible:
+	if game_over_panel.visible:
 		if event is InputEventMouseButton and event.pressed:
-			get_tree().reload_current_scene()
+			_start_new_game()
 		return
 	var pointer_pos := get_global_mouse_position()
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
@@ -349,11 +395,11 @@ func _input(event: InputEvent) -> void:
 				is_dragging = true
 				has_dragged_far = false
 				drag_start_pos = event.position
-	if game_over_label.visible:
+	if game_over_panel.visible:
 		if event is InputEventMouseButton and event.pressed:
-			SaveManager.delete_save()
 			_start_new_game()
-		return	
+		return
+	
 				
 func _get_target_coords() -> Array[Vector2i]:
 	var world_pos_a = candidate_tiles[0].global_position
@@ -884,7 +930,7 @@ func _use_hammer_on_coord(coord: Vector2i) -> void:
 	
 	# Re-check if current candidate can now fit on the board
 	if _can_place_candidate():
-		game_over_label.visible = false
+		_set_game_over(false)
 
 func _on_reroll_pressed() -> void:
 	if gems < REROLL_COST or is_hammer_mode:
@@ -1005,8 +1051,8 @@ func _start_new_game() -> void:
 	progress_bar.max_value = xp_to_next_level
 	progress_bar.value = 0
 	
-	game_over_label.visible = false
-	_spawn_candidate() # Automatically calls _save_game() once ready
+	_set_game_over(false)
+	_spawn_candidate()
 
 
 func _save_game() -> void:
@@ -1099,7 +1145,10 @@ func _restore_game(data: Dictionary) -> void:
 		_update_candidate_pair_positions(false)
 		
 	_update_powerup_buttons()
-	game_over_label.visible = not _can_place_candidate()
+	if not _can_place_candidate():
+		_set_game_over(true)
+	else:
+		_set_game_over(false)
 
 
 func _setup_juice_nodes() -> void:
