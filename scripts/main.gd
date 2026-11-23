@@ -115,9 +115,6 @@ var reroll_button: Button
 var hammer_hint_label: Label
 var game_over_panel: Panel
 var game_over_sub_label: Label
-var home_overlay: ColorRect
-var play_button: Button
-var reset_save_button: Button
 var settings_overlay: ColorRect
 var daily_overlay: ColorRect
 var sound_toggle_btn: Button
@@ -145,7 +142,7 @@ func _ready() -> void:
 	_build_board()
 	_setup_camera()
 	_setup_modals()
-	_setup_home_screen()
+	_begin_session()
 
 
 func _notification(what: int) -> void:
@@ -520,7 +517,7 @@ func _are_coords_valid_and_empty(coords: Array[Vector2i]) -> bool:
 # =============================================================================
 
 func _any_overlay_open() -> bool:
-	return home_overlay.visible or settings_overlay.visible or daily_overlay.visible
+	return settings_overlay.visible or daily_overlay.visible
 
 
 func _input(event: InputEvent) -> void:
@@ -1325,35 +1322,6 @@ func _setup_game_over_ui() -> void:
 		"NEW GAME", Color("#36b37e"), _start_new_game))
 
 
-func _setup_home_screen() -> void:
-	var center_x := screen_size.x * 0.5
-	home_overlay = ColorRect.new()
-	home_overlay.color = Color("#1e1e22")
-	home_overlay.size = screen_size
-	home_overlay.z_index = 50
-	ui_layer.add_child(home_overlay)
-
-	home_overlay.add_child(_make_label("HEX MERGE", Vector2(0, screen_size.y * 0.22),
-			Vector2(screen_size.x, 70), 52))
-
-	# Decorative hex under the title
-	var deco_hex := HexTile.new(64, 48.0)
-	deco_hex.position = Vector2(center_x, screen_size.y * 0.37)
-	home_overlay.add_child(deco_hex)
-
-	var save_exists := SaveManager.has_save()
-	play_button = _create_menu_button(
-		Vector2(center_x - 125.0, screen_size.y * 0.50), Vector2(250, 68),
-		"CONTINUE" if save_exists else "PLAY", Color("#36b37e"), _on_play_pressed)
-	home_overlay.add_child(play_button)
-
-	reset_save_button = _create_menu_button(
-		Vector2(center_x - 100.0, screen_size.y * 0.60), Vector2(200, 52),
-		"RESET SAVE", Color("#eb4d4b"), _on_reset_save_pressed)
-	reset_save_button.visible = save_exists
-	home_overlay.add_child(reset_save_button)
-
-
 func _setup_modals() -> void:
 	# --- SETTINGS MODAL ---
 	settings_overlay = _create_modal_backdrop()
@@ -1422,19 +1390,14 @@ func _create_modal_card(parent: Control, card_size: Vector2, title_text: String)
 # MENU / MODAL CALLBACKS
 # =============================================================================
 
-func _on_play_pressed() -> void:
-	home_overlay.visible = false
+# Called once the scene is ready: resume the saved run, or start a new one.
+# (The home screen's NEW button deletes the save before launching, so this just follows what exists.)
+func _begin_session() -> void:
 	var saved_data: Dictionary = SaveManager.read_save()
 	if not saved_data.is_empty():
 		_restore_game(saved_data)
 	else:
 		_start_new_game()
-
-
-func _on_reset_save_pressed() -> void:
-	SaveManager.delete_save()
-	play_button.text = "PLAY"
-	reset_save_button.visible = false
 
 
 func _on_settings_pressed() -> void:
@@ -1461,13 +1424,10 @@ func _on_toggle_haptics() -> void:
 
 
 func _on_return_home_pressed() -> void:
+	# Leaving frees this scene, so save first
 	_save_game()
 	_flush_best_score()
-	settings_overlay.visible = false
-	var save_exists := SaveManager.has_save()
-	play_button.text = "CONTINUE" if save_exists else "PLAY"
-	reset_save_button.visible = save_exists
-	home_overlay.visible = true
+	GameHub.go_home()
 
 
 func _on_calendar_pressed() -> void:

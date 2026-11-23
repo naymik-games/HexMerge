@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="HexMerge"
-run/main_scene="uid://l0ps5ser4i80"
+run/main_scene="uid://blcahgn6e7856"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="uid://b2ji4jk8afvqw"
 
@@ -19,6 +19,7 @@ config/icon="uid://b2ji4jk8afvqw"
 
 SaveManager="*uid://dir15qnnqed0m"
 SoundFX="*uid://dkhvc0sdnbj3"
+GameHub="*uid://dgmxpg0un8ivb"
 
 [display]
 

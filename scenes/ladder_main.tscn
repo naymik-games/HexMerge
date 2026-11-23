@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://diyie0eqeuwx8"]
+
+[ext_resource type="Script" uid="uid://bu52u8okkh4qi" path="res://scenes/ladder_main.gd" id="1_ihj8f"]
+
+[node name="LadderMain" type="Node2D" unique_id=438019307]
+script = ExtResource("1_ihj8f")

@@ -1,0 +1,8 @@
+[gd_scene format=3 uid="uid://blcahgn6e7856"]
+
+[ext_resource type="Script" uid="uid://0wieldvmmo63" path="res://scripts/home_screen.gd" id="1_lapbl"]
+
+[node name="HomeScreen" type="Control" unique_id=1700361718]
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("1_lapbl")
